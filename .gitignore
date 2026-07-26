@@ -1,0 +1,26 @@
+# Env / secrets
+.env
+.env.local
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Data + media (never commit footage or extracted frames)
+data/frames/
+data/chroma/
+data/*.db
+data/*.db-*
+*.mp4
+*.mov
+*.avi
+!data/sample/README.md
+
+# Node
+node_modules/
+build/
+
+# OS
+.DS_Store
