@@ -40,25 +40,37 @@ a README.
 
 ### Measured on real footage
 
-A 10-second 1920×1080 CCTV clip from NVIDIA's SDG-Warehouse near-miss scenario
-(`python scripts/fetch_sample.py`), run against the Safety compliance profile:
+Four scenarios from NVIDIA's SDG-Warehouse dataset (`python scripts/fetch_sample.py --all`),
+1920×1080 at 30 fps. Frame counts are exact — the filter runs locally, so measuring
+it costs nothing:
 
-| | |
-|---|---|
-| Frames decoded | 300 |
-| Sampled at 1 fps | 10 |
-| Sent to the model | 9 |
-| API calls | 1 |
-| Tokens | 4,737 |
-| Wall clock | 10.1s |
-| Flagged | forklift within 2 m of a person at 00:04, `critical`, confidence 0.90 |
+| Clip | Decoded | Sampled @1fps | Sent | Requests (filtered → baseline) | Filter saved |
+|---|---|---|---|---|---|
+| Forklift–shelf collision | 451 | 16 | 2 | 1 → 2 | 88% |
+| Warehouse fire | 277 | 10 | 3 | 1 → 1 | 70% |
+| Box pickup | 418 | 14 | 3 | 1 → 2 | 79% |
+| Forklift near-miss | 300 | 10 | 9 | 1 → 1 | **10%** |
+| **Total** | **1,446** | **50** | **17** | | **66%** |
 
-**The filter saved almost nothing on this clip, and that is the honest result.**
-Ten seconds of continuous action has nothing static to drop. The filter earns
-its keep on long, mostly-empty footage — an overnight shift where the same
-frame repeats ten thousand times — not on a short action sequence. Run the same
-clip in baseline mode and the numbers are nearly identical; run it on an hour of
-a quiet aisle and they are not.
+**Two different reductions, and they should not be quoted as one number:**
+
+- **Sampling is content-independent.** 30 fps → 1 fps removes 96.5% of frames on
+  any footage, guaranteed, because it is arithmetic rather than a judgement.
+- **The motion filter is content-dependent.** Across these four clips it removed
+  a further 66% of what survived sampling — but the spread is 10% to 88%. The
+  near-miss clip is ten seconds of continuous action with nothing static to
+  drop; the collision clip is mostly an undisturbed aisle. Real overnight CCTV
+  looks far more like the second than the first.
+
+Combined, 1,446 frames became 17. But the honest way to read this is that the
+guaranteed part is the sampling, and the filter is a multiplier whose value
+depends entirely on how much of your footage is nothing happening.
+
+**So the app measures it for you.** The dashboard shows how many requests your
+runs actually made next to how many they would have made with the filter off —
+exact arithmetic on frames already counted, not a second set of API calls. There
+is also a baseline mode that genuinely re-runs without the filter if you want to
+compare the outputs and not just the cost.
 
 ## What it does
 

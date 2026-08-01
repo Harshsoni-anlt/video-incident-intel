@@ -119,9 +119,14 @@ export default function Dashboard({
 
       <Card
         title="What the motion filter saved"
-        subtitle="Sampled frames are cheap; described frames are not. Only what changed gets sent."
+        subtitle="How much of your footage never reached the model — measured on your own videos, not mine."
       >
-        <SavingsBar sent={stats.frames_sent} sampled={stats.frames_sampled} />
+        <SavingsBar
+          sent={stats.frames_sent}
+          sampled={stats.frames_sampled}
+          calls={stats.api_calls}
+          baselineCalls={stats.baseline_api_calls}
+        />
       </Card>
 
       <div className="grid lg:grid-cols-2 gap-5">

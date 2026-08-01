@@ -94,6 +94,8 @@ export type Stats = {
   runs: number;
   frames_sampled: number;
   frames_sent: number;
+  baseline_frames: number;
+  baseline_api_calls: number;
   frames_skipped_pct: number;
   api_calls: number;
   tokens: number;

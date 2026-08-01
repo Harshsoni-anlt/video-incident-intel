@@ -34,7 +34,17 @@ export const axisProps = {
  * model. Two segments, both directly labelled, 2px surface gap between them —
  * so it needs no legend and no colour-only reading.
  */
-export function SavingsBar({ sent, sampled }: { sent: number; sampled: number }) {
+export function SavingsBar({
+  sent,
+  sampled,
+  calls,
+  baselineCalls,
+}: {
+  sent: number;
+  sampled: number;
+  calls?: number;
+  baselineCalls?: number;
+}) {
   if (!sampled) return null;
   const sentPct = (sent / sampled) * 100;
   const skipped = sampled - sent;
@@ -66,6 +76,26 @@ export function SavingsBar({ sent, sampled }: { sent: number; sampled: number })
         <span>Sent to the vision model</span>
         <span>Dropped locally — nothing changed in frame</span>
       </div>
+
+      {baselineCalls !== undefined && calls !== undefined && (
+        // Exact arithmetic on frames already counted, not a second run: the
+        // baseline sends every sampled frame at the same frames-per-request.
+        <div
+          className="mt-4 pt-3.5 border-t flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <span className="tnum font-semibold text-sm" style={{ color: "var(--good)" }}>
+            {calls.toLocaleString()}
+          </span>
+          <span style={{ color: "var(--ink-2)" }}>
+            request{calls === 1 ? "" : "s"} to the model
+          </span>
+          <span style={{ color: "var(--ink-muted)" }}>· without the filter it would have been</span>
+          <span className="tnum font-semibold" style={{ color: "var(--ink)" }}>
+            {baselineCalls.toLocaleString()}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

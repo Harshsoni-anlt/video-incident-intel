@@ -12,6 +12,7 @@ import csv
 import io
 import json
 import logging
+import math
 import shutil
 import sqlite3
 import uuid
@@ -547,7 +548,20 @@ def stats() -> dict[str, Any]:
     """) or {}
 
     sampled, sent = work.get("sampled", 0) or 0, work.get("sent", 0) or 0
+
+    # What the same runs would have cost with the filter switched off. This is
+    # exact arithmetic on frames we already counted, not an estimate and not a
+    # second set of API calls: the baseline sends every sampled frame, packed
+    # the same number per request.
+    per_call = max(config.FRAMES_PER_CALL, 1)
+    baseline_calls = sum(
+        math.ceil((r["frames_sampled"] or 0) / per_call)
+        for r in db.query("SELECT frames_sampled FROM runs WHERE status='done'")
+    )
+
     return {
+        "baseline_frames": sampled,
+        "baseline_api_calls": baseline_calls,
         "videos": totals.get("videos", 0),
         "seconds_of_footage": round(totals.get("seconds_of_footage") or 0, 1),
         "hours_of_footage": round((totals.get("seconds_of_footage") or 0) / 3600, 2),

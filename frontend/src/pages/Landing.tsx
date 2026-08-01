@@ -44,9 +44,9 @@ const CAPABILITIES = [
 
 const PIPELINE = [
   { n: "1,080,000", label: "frames in ten hours", note: "30 fps, one camera", tone: "muted" },
-  { n: "36,000", label: "after sampling at 1 fps", note: "97% gone before anything looks", tone: "muted" },
-  { n: "~400", label: "after the motion filter", note: "nothing changed → never sent", tone: "accent" },
-  { n: "~34", label: "vision requests", note: "12 frames packed per call", tone: "accent" },
+  { n: "36,000", label: "sampling at 1 fps", note: "−96.5%, on any footage", tone: "muted" },
+  { n: "~12,000", label: "motion filter", note: "−66% measured, 10–88% by clip", tone: "accent" },
+  { n: "~1,000", label: "vision requests", note: "12 frames packed per call", tone: "accent" },
 ];
 
 const QUESTIONS = [
@@ -285,9 +285,13 @@ export default function Landing({ onLaunch }: { onLaunch: () => void }) {
 
         <Reveal delay={200}>
           <p className="mt-5 text-xs max-w-2xl leading-relaxed" style={{ color: "var(--ink-muted)" }}>
-            The motion filter runs locally on a 64×64 greyscale copy of each frame and costs
-            nothing. The app also ships a baseline mode that skips it, so the saving is a number
-            you can measure on your own footage rather than a claim in a README.
+            Two different reductions, and it matters which is which. Sampling is arithmetic — it
+            removes 96.5% of frames on any footage, guaranteed. The motion filter is a judgement
+            about your specific video: measured across four real warehouse clips it removed a
+            further 66%, but the spread was 10% on ten seconds of continuous action to 88% on a
+            mostly-undisturbed aisle. Real overnight CCTV looks much more like the second.
+            The dashboard shows what your own runs cost against what they would have cost with
+            the filter off, so you never have to take that on trust.
           </p>
         </Reveal>
       </section>
