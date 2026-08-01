@@ -1,0 +1,16 @@
+# --- Web framework ---
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart          # multipart/form-data video upload
+pydantic>=2.7
+
+# --- HTTP (Gemini + Ollama are both plain REST; no vendor SDK needed) ---
+httpx>=0.27
+
+# --- Video decode + motion filtering ---
+# opencv bundles its own ffmpeg libs, so no system ffmpeg install is required.
+opencv-python-headless>=4.10
+numpy>=1.26
+
+# --- Config ---
+python-dotenv>=1.0

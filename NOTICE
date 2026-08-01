@@ -1,0 +1,47 @@
+Video Incident Intelligence
+Copyright 2026 Harsh Soni
+
+This product includes software developed by Harsh Soni.
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+--------------------------------------------------------------------------------
+Third-party data
+--------------------------------------------------------------------------------
+
+Sample footage referenced by this project (not redistributed in this repository;
+see data/sample/README.md for how to obtain it):
+
+  PhysicalAI SDG-Warehouse
+  nvidia/PhysicalAI-WorldModel-Synthetic-Warehouse-Operations-Scenes
+  https://huggingface.co/datasets/nvidia/PhysicalAI-WorldModel-Synthetic-Warehouse-Operations-Scenes
+  Copyright NVIDIA Corporation
+  Licensed under OpenMDW 1.1 (Linux Foundation)
+  https://openmdw.ai/
+
+  Fully synthetic footage rendered in NVIDIA Isaac Sim. No real-world footage
+  was captured or used, and no real people appear in it.
+
+--------------------------------------------------------------------------------
+Third-party services
+--------------------------------------------------------------------------------
+
+  Google Gemini API — used for frame understanding, embeddings and text
+  generation. Subject to Google's own terms; this project neither redistributes
+  nor includes any Google model weights.
+
+--------------------------------------------------------------------------------
+Third-party libraries
+--------------------------------------------------------------------------------
+
+  OpenCV (opencv-python-headless)  Apache 2.0
+  FastAPI                          MIT
+  Uvicorn                          BSD-3-Clause
+  NumPy                            BSD-3-Clause
+  httpx                            BSD-3-Clause
+  Pydantic                         MIT
+  React                            MIT
+  Vite                             MIT
+  Tailwind CSS                     MIT
+  Recharts                         MIT
+
+Full license texts ship with each package in its distribution.

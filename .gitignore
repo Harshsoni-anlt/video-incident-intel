@@ -10,17 +10,24 @@ __pycache__/
 
 # Data + media (never commit footage or extracted frames)
 data/frames/
+data/thumbs/
+data/uploads/
 data/chroma/
 data/*.db
 data/*.db-*
 *.mp4
 *.mov
 *.avi
+*.mkv
+*.webm
 !data/sample/README.md
 
 # Node
 node_modules/
 build/
+dist/
+frontend/dist/
+*.tsbuildinfo
 
 # OS
 .DS_Store

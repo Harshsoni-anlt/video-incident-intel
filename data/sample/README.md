@@ -1,13 +1,12 @@
 # Sample footage
 
-Deliberately empty for now.
+Empty until the clips are trimmed and dropped in here.
 
-Whatever ships here must contain **no identifiable people**. Options under
-consideration, in order of preference:
+**Source:** `nvidia/PhysicalAI-WorldModel-Synthetic-Warehouse-Operations-Scenes`
+(Hugging Face), OpenMDW 1.1 license. Fully synthetic (Isaac Sim) — no real
+people, no privacy concerns. See `docs/BRIEF.md` open question 1 for why.
 
-1. Staged footage recorded specifically for this demo
-2. A public dataset with a permissive licence and no privacy concerns
-3. Synthetic / rendered clips
-
-This is the first decision to make — see `docs/BRIEF.md`, open question 1. It
-shapes the vision prompts, the sample queries and the whole demo script.
+**To populate:** download one shard per scenario, `ffmpeg`-trim to a 30–90s
+clip, keep only the trimmed MP4 here. Four scenarios: forklift–human
+near-miss, fire + evacuation, forklift–shelf collision, routine box-pickup
+(baseline/negative case). Attribute in NOTICE.

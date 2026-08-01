@@ -1,6 +1,6 @@
 # Project 2 — Video Incident Intelligence
 
-**Status:** not started. This document is the working brief; read it first.
+**Status:** open questions resolved 31 Jul 2026 (see below). Ready to scaffold.
 **Predecessor:** [WarehouseOps AI](https://github.com/Harshsoni-anlt/warehouseops-ai) — shipped 26 Jul 2026.
 
 ---
@@ -85,21 +85,35 @@ problem. Everything else is plumbing that already exists in project 1.
 
 ---
 
-## Open questions to resolve before writing code
+## Open questions — resolved 31 Jul 2026
 
-1. **Sample data.** What footage ships with the demo? Privacy matters — no
-   identifiable faces. Options: staged phone footage, a public dataset with a
-   permissive licence, or synthetic/rendered clips. *Decide this first; it
-   shapes everything.*
-2. **Vision model choice.** Gemini free tier is faster to build against; local
-   Moondream keeps the "runs entirely offline" claim from project 1 intact.
-   Possibly support both, as project 1 does with Groq/Ollama.
-3. **How much do we describe?** Dense captions per frame, or targeted checks
-   ("is the exit blocked?") against a defined list of conditions? Targeted is
-   cheaper and more useful; dense is more flexible.
-4. **Standalone or extension?** Separate repo that writes into project 1's
-   database, or a module inside it? Leaning separate — cleaner story, and it can
-   be demoed alone.
+1. **Sample data.** ✅ **NVIDIA PhysicalAI SDG-Warehouse** synthetic dataset
+   (`nvidia/PhysicalAI-WorldModel-Synthetic-Warehouse-Operations-Scenes` on
+   Hugging Face). Fully rendered in Isaac Sim — no real footage, no real
+   people, zero privacy exposure (stronger than "faces blurred": there are no
+   faces to blur). Licensed **OpenMDW 1.1** (Linux Foundation, permissive,
+   redistribution allowed with attribution). Four scenarios, three of them
+   literally safety incidents: forklift–human near-miss, warehouse fire +
+   evacuation, forklift–shelf collision, routine box-pickup (our negative/
+   baseline case). Same provenance pattern as project 1 (NVIDIA source,
+   stated once in README + NOTICE, never the headline) — precedent already
+   set, no new positioning problem.
+   - **Practical note:** shards are ~5 GB each — far too big to ship. Plan:
+     download one shard per scenario, `ffmpeg`-trim to a 30–90s highlight
+     clip, keep only the trimmed MP4s (a few MB total) in `data/sample/`,
+     discard the shard. Attribution goes in NOTICE, same as project 1.
+2. **Vision model choice.** ✅ Mirror project 1's dual-path pattern: **Gemini
+   free tier** primary (fast to build against), **local Moondream 2 via
+   Ollama** as the offline fallback, so the "runs entirely offline" claim
+   holds. Same `--offline` flag shape as project 1.
+3. **How much do we describe?** ✅ **Targeted checks**, not dense captions —
+   a fixed condition list evaluated per surviving frame (exit blocked /
+   clear, hi-vis vest present, forklift proximity to a person, congestion).
+   Cheaper, more auditable, and maps directly onto the four SDG-Warehouse
+   scenarios. Dense captioning stays an explicit non-goal for v1.
+4. **Standalone or extension?** ✅ **Standalone repo**, writes into project 1's
+   existing SQLite safety-incident table via the schema it already defines —
+   same integration shape as any other incident source, no shared codebase.
 
 ## Scope discipline
 
