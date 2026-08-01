@@ -38,6 +38,28 @@ The app ships a **baseline mode** that skips the filter and describes every
 sampled frame, so the saving is a number you can measure rather than a claim in
 a README.
 
+### Measured on real footage
+
+A 10-second 1920×1080 CCTV clip from NVIDIA's SDG-Warehouse near-miss scenario
+(`python scripts/fetch_sample.py`), run against the Safety compliance profile:
+
+| | |
+|---|---|
+| Frames decoded | 300 |
+| Sampled at 1 fps | 10 |
+| Sent to the model | 9 |
+| API calls | 1 |
+| Tokens | 4,737 |
+| Wall clock | 10.1s |
+| Flagged | forklift within 2 m of a person at 00:04, `critical`, confidence 0.90 |
+
+**The filter saved almost nothing on this clip, and that is the honest result.**
+Ten seconds of continuous action has nothing static to drop. The filter earns
+its keep on long, mostly-empty footage — an overnight shift where the same
+frame repeats ten thousand times — not on a short action sequence. Run the same
+clip in baseline mode and the numbers are nearly identical; run it on an hour of
+a quiet aisle and they are not.
+
 ## What it does
 
 | | |
@@ -87,11 +109,24 @@ matching, but nothing leaves the machine.
 
 ## Sample footage
 
-The demo clip is generated locally by the app. For realistic footage the repo
-points at NVIDIA's **PhysicalAI SDG-Warehouse** dataset — fully synthetic, so
-there are no real people in it and no privacy question to answer. See
-[`data/sample/README.md`](data/sample/README.md) for how to pull and trim it,
-and [NOTICE](NOTICE) for attribution.
+Two options, neither of which needs an account:
+
+```bash
+python scripts/fetch_sample.py --list      # four scenarios
+python scripts/fetch_sample.py             # forklift near-miss, ~170 MB
+python scripts/fetch_sample.py --all       # one clip per scenario
+```
+
+That pulls real 1080p CCTV-view footage from NVIDIA's **PhysicalAI
+SDG-Warehouse** dataset. The dataset is 18 TiB and its shards are gigabytes
+each, but they are WebDataset tars — sequential — so the script streams one and
+stops at the first clip instead of downloading the shard.
+
+The footage is **fully synthetic**, rendered in Isaac Sim: no real people, no
+privacy question, no consent to chase. Licensed OpenMDW 1.1 — see [NOTICE](NOTICE).
+
+Or press **Use a sample clip** in the app, which generates a synthetic scene
+locally in a second and needs no download at all.
 
 ## Honest limitations
 
