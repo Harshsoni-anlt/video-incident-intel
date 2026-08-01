@@ -14,7 +14,6 @@ import json
 import logging
 import math
 import shutil
-import sqlite3
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -24,6 +23,8 @@ from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Upload
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
+
+import httpx
 
 from . import analysis, config, db, pipeline
 
@@ -74,7 +75,7 @@ async def _seed_demo() -> None:
             # delete the footage the user fetched.
             await asyncio.to_thread(shutil.copy2, src, dest)
         else:
-            name = "synthetic-warehouse-sample.mp4"
+            name = "test-pattern.mp4"
             dest = Path(config.UPLOAD_DIR) / f"demo-{uuid.uuid4().hex[:8]}.mp4"
             await asyncio.to_thread(pipeline.make_test_clip, dest, 30, 15)
 
@@ -131,6 +132,10 @@ ALLOWED_SUFFIXES = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
 _HIDDEN = ("stored_path",)
 
 
+def _now_iso() -> str:
+    return (db.one("SELECT datetime('now') AS n") or {}).get("n", "")
+
+
 def _public(row: dict | None) -> dict | None:
     return {k: v for k, v in row.items() if k not in _HIDDEN} if row else row
 
@@ -149,7 +154,7 @@ def health() -> dict:
         "motion_threshold": config.MOTION_THRESHOLD,
         "frames_per_call": config.FRAMES_PER_CALL,
         "max_frames": config.MAX_FRAMES,
-        "warehouse_export": bool(config.WAREHOUSE_DB_PATH),
+        "webhook_configured": bool(config.INCIDENT_WEBHOOK_URL),
         "seeding": _seeding,
     }
 
@@ -481,42 +486,67 @@ def export_csv(video_id: int | None = None) -> StreamingResponse:
     )
 
 
-@app.post("/api/incidents/push-to-warehouse")
-def push_to_warehouse(video_id: int | None = None) -> dict:
-    """Write incidents into WarehouseOps AI's safety_incidents table.
+@app.post("/api/incidents/send")
+async def send_incidents(video_id: int | None = None) -> dict:
+    """POST incidents that have not been sent yet to the configured webhook.
 
-    That app already reads this table, so a camera finding shows up when someone
-    asks the assistant "show me recent safety incidents". Set WAREHOUSE_DB_PATH.
+    Generic on purpose. Whatever consumes these — a ticketing system, a chat
+    workflow, another application's ingest endpoint — is that system's business,
+    not this one's. Nothing here knows about any particular downstream project.
     """
-    if not config.WAREHOUSE_DB_PATH:
-        raise HTTPException(400, "WAREHOUSE_DB_PATH is not set. Point it at WarehouseOps AI's "
-                                 "warehouse.db to enable this.")
-    target = Path(config.WAREHOUSE_DB_PATH)
-    if not target.exists():
-        raise HTTPException(400, f"No database at {target}")
+    if not config.INCIDENT_WEBHOOK_URL:
+        raise HTTPException(400, "No webhook configured. Set INCIDENT_WEBHOOK_URL in .env "
+                                 "to the endpoint that should receive incidents.")
 
     rows = [r for r in list_incidents(video_id=video_id, limit=1000) if not r["exported_at"]]
     if not rows:
-        return {"exported": 0, "detail": "Nothing new to export."}
+        return {"sent": 0, "detail": "Nothing new to send."}
 
-    conn = sqlite3.connect(target)
+    payload = {
+        "source": "video-incident-intel",
+        "sent_at": _now_iso(),
+        "incidents": [
+            {
+                "id": r["id"],
+                "video": r["filename"],
+                "timestamp_s": round(r["ts_s"], 2),
+                "timestamp": analysis._hms(r["ts_s"]),
+                "severity": r["severity"],
+                "description": r["description"],
+                "confidence": round(r["confidence"] or 0, 3),
+                "detected_at": r["created_at"],
+            }
+            for r in rows
+        ],
+    }
+    headers = ({"Authorization": f"Bearer {config.INCIDENT_WEBHOOK_TOKEN}"}
+               if config.INCIDENT_WEBHOOK_TOKEN else {})
     try:
-        cols = {r[1] for r in conn.execute("PRAGMA table_info(safety_incidents)")}
-        if not cols:
-            raise HTTPException(400, "That database has no safety_incidents table.")
-        conn.executemany(
-            "INSERT INTO safety_incidents (severity, description, reported_by, occurred_at) "
-            "VALUES (?,?,?,datetime('now'))",
-            [(r["severity"], f"[camera] {r['description']} ({r['filename']})",
-              "video-incident-intel") for r in rows],
-        )
-        conn.commit()
-    finally:
-        conn.close()
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(config.INCIDENT_WEBHOOK_URL, json=payload, headers=headers)
+    except httpx.RequestError as e:
+        raise HTTPException(502, f"Could not reach the webhook: {e}")
+    if resp.status_code >= 300:
+        raise HTTPException(502, f"Webhook returned HTTP {resp.status_code}: {resp.text[:200]}")
 
+    # Only mark them sent once the endpoint has actually accepted them.
     db.executemany("UPDATE incidents SET exported_at=datetime('now') WHERE id=?",
                    [(r["id"],) for r in rows])
-    return {"exported": len(rows), "target": str(target)}
+    return {"sent": len(rows), "status": resp.status_code}
+
+
+@app.get("/api/incidents/export.json")
+def export_json(video_id: int | None = None) -> list[dict]:
+    """The same payload as the webhook, for anything that would rather pull."""
+    return [
+        {
+            "id": r["id"], "video": r["filename"],
+            "timestamp_s": round(r["ts_s"], 2), "timestamp": analysis._hms(r["ts_s"]),
+            "severity": r["severity"], "description": r["description"],
+            "confidence": round(r["confidence"] or 0, 3), "detected_at": r["created_at"],
+        }
+        for r in list_incidents(video_id=video_id, limit=1000)
+    ]
 
 
 @app.delete("/api/incidents/{incident_id}")

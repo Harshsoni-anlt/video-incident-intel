@@ -7,7 +7,7 @@ export default function Incidents({ onOpenVideo }: { onOpenVideo: (id: number) =
   const [filter, setFilter] = useState<Severity | "">("");
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
-  const [warehouseEnabled, setWarehouseEnabled] = useState(false);
+  const [webhookReady, setWebhookReady] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -19,7 +19,7 @@ export default function Incidents({ onOpenVideo }: { onOpenVideo: (id: number) =
 
   useEffect(() => {
     refresh();
-    api.health().then((h) => setWarehouseEnabled(h.warehouse_export)).catch(() => {});
+    api.health().then((h) => setWebhookReady(h.webhook_configured)).catch(() => {});
   }, [refresh]);
 
   const dismiss = async (id: number) => {
@@ -31,12 +31,12 @@ export default function Incidents({ onOpenVideo }: { onOpenVideo: (id: number) =
     }
   };
 
-  const push = async () => {
+  const send = async () => {
     setError("");
     setNote("");
     try {
-      const r = await api.pushToWarehouse();
-      setNote(`Exported ${r.exported} incident${r.exported === 1 ? "" : "s"} to WarehouseOps AI.`);
+      const r = await api.sendIncidents();
+      setNote(`Sent ${r.sent} incident${r.sent === 1 ? "" : "s"} to the webhook.`);
       await refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -61,17 +61,20 @@ export default function Incidents({ onOpenVideo }: { onOpenVideo: (id: number) =
           <a href="/api/incidents/export.csv" download>
             <Button size="sm">Export CSV</Button>
           </a>
+          <a href="/api/incidents/export.json" download>
+            <Button size="sm">Export JSON</Button>
+          </a>
           <Button
             size="sm"
             variant="primary"
-            onClick={push}
+            onClick={send}
             title={
-              warehouseEnabled
-                ? "Write these into WarehouseOps AI's safety-incident table"
-                : "Set WAREHOUSE_DB_PATH in .env to enable"
+              webhookReady
+                ? "POST these to the configured endpoint"
+                : "Set INCIDENT_WEBHOOK_URL in .env to enable"
             }
           >
-            Push to WarehouseOps
+            Send to webhook
           </Button>
         </div>
       </header>

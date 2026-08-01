@@ -88,10 +88,13 @@ MAX_UPLOAD_MB = _int("MAX_UPLOAD_MB", 500)
 # for a clean install, or when running the tests.
 SEED_DEMO = os.getenv("SEED_DEMO", "1").lower() not in ("0", "false", "no", "off")
 
-# --- Incident write-back to project 1 (WarehouseOps AI) ---
-# Point this at that repo's warehouse.db to have camera findings show up in the
-# assistant's safety-incident table. Empty = feature off.
-WAREHOUSE_DB_PATH = os.getenv("WAREHOUSE_DB_PATH", "")
+# --- Routing incidents downstream ------------------------------------------
+# Optional. POST confirmed incidents as JSON to any endpoint — a ticketing
+# system, a Slack workflow, an automation runner, another app's ingest route.
+# Deliberately generic: this project does not depend on, or know about, any
+# particular consumer. Empty = feature off.
+INCIDENT_WEBHOOK_URL = os.getenv("INCIDENT_WEBHOOK_URL", "")
+INCIDENT_WEBHOOK_TOKEN = os.getenv("INCIDENT_WEBHOOK_TOKEN", "")
 
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 

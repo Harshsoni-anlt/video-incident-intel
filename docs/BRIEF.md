@@ -1,7 +1,8 @@
 # Project 2 — Video Incident Intelligence
 
-**Status:** open questions resolved 31 Jul 2026 (see below). Ready to scaffold.
-**Predecessor:** [WarehouseOps AI](https://github.com/Harshsoni-anlt/warehouseops-ai) — shipped 26 Jul 2026.
+**Status:** built and shipped 1 Aug 2026. Kept as the design record — where a
+decision changed during the build, the revision is noted inline rather than
+quietly rewritten.
 
 ---
 
@@ -24,19 +25,24 @@ footage, in plain language.**
 |---|---|
 | **Ask in plain language** | "Show me every time the loading bay was blocked last week." "Was anyone in Zone C without a hi-vis vest?" |
 | **Summarise a shift** | Ten hours in, five moments out — with timestamps and a thumbnail each. |
-| **Open incidents automatically** | A detection with high enough confidence files a safety incident, with the clip attached, into the same table WarehouseOps AI already reads. |
-| **Stay auditable** | Every answer cites the clip and timestamp it came from. Same principle as project 1: the model writes the sentence, the evidence is real. |
+| **Open incidents automatically** | A check that trips with enough confidence files an incident with the frame attached. *Revised: incidents leave through CSV, JSON or a generic webhook — see open question 4.* |
+| **Stay auditable** | Every answer cites the clip and timestamp it came from. The model writes the sentence; the evidence is real. |
 
-## Why it follows project 1
+## Where this sits
 
-It reuses the planner, tool-routing and guardrail layer already built, and it
-writes into the **same safety-incident table** the warehouse assistant reads. So
-"show me recent safety incidents" in project 1 starts returning things a camera
-found. That connection is the story: one agent architecture, a second input type.
+Second in a series that adds one input modality at a time — text, then video,
+then voice. The series shares an approach, not a codebase.
+
+*Revised 1 Aug 2026:* the original plan had this writing into the previous
+project's database, reusing its planner and guardrail layer. None of that
+survived contact with the build. This runs standalone, shares no code, and
+exports through formats anything can read. Independence turned out to be worth
+more than reuse — it can be evaluated, cloned and run without knowing another
+project exists.
 
 ---
 
-## Constraints (unchanged from project 1)
+## Constraints
 
 - **₹0.** No GPU, no managed services, nothing with a monthly bill.
 - **Runs on a laptop.** Two commands.
@@ -69,7 +75,9 @@ video file
 
 **The interesting engineering is step 2.** Getting from "30 fps × 10 hours" to
 "a few hundred frames worth describing" without missing the event is the whole
-problem. Everything else is plumbing that already exists in project 1.
+problem. *Measured across four real clips after the build: sampling removes
+96.5% regardless of content, the motion filter a further 66% on average with a
+10–88% spread depending on how static the footage is.*
 
 ### Candidate free components
 
@@ -79,8 +87,8 @@ problem. Everything else is plumbing that already exists in project 1.
 | Motion filtering | OpenCV frame differencing | Local, fast, free |
 | Vision model | Gemini free tier | Generous free quota, no card |
 | Vision model (offline) | Moondream 2 / Qwen2-VL 2B via Ollama | Runs on CPU/M-series, slower |
-| Embeddings | sentence-transformers | Same as project 1 |
-| Vector store | ChromaDB | Same as project 1 |
+| Embeddings | sentence-transformers | *Revised: Gemini embeddings API — no torch, smaller install* |
+| Vector store | ChromaDB | *Revised: dropped. A few hundred frames is a numpy cosine scan, not a database* |
 | Sample footage | Public warehouse/CCTV datasets, or record a phone video of a desk setup | **Must not use real footage of identifiable people** |
 
 ---
@@ -111,14 +119,18 @@ problem. Everything else is plumbing that already exists in project 1.
    clear, hi-vis vest present, forklift proximity to a person, congestion).
    Cheaper, more auditable, and maps directly onto the four SDG-Warehouse
    scenarios. Dense captioning stays an explicit non-goal for v1.
-4. **Standalone or extension?** ✅ **Standalone repo**, writes into project 1's
-   existing SQLite safety-incident table via the schema it already defines —
-   same integration shape as any other incident source, no shared codebase.
+4. **Standalone or extension?** ✅ **Standalone repo.**
+   *Revised 1 Aug 2026:* the original plan was to write directly into project
+   1's SQLite safety-incident table. That was dropped — it made this project a
+   plugin of another one, and coupled it to a schema it does not own. Incidents
+   now leave through CSV, JSON or a **generic webhook** that points anywhere.
+   Any consumer, including project 1, is free to read them; nothing here knows
+   or cares which. The projects share ideas and discipline, not runtime.
 
 ## Scope discipline
 
-Project 1 took far longer than planned because the scope kept growing. For this
-one:
+The previous build took far longer than planned because the scope kept growing.
+For this one:
 
 **In scope for v1**
 - One video file at a time, uploaded through a UI
@@ -134,7 +146,7 @@ one:
 
 ---
 
-## Lessons carried forward from project 1
+## Lessons carried into this build
 
 Written down because they cost real time:
 

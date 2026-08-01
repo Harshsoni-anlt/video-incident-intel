@@ -82,7 +82,7 @@ compare the outputs and not just the cost.
 | **Ask anything** | Free-text questions run over the indexed frame descriptions. Answers cite the timestamps they came from, and clicking one seeks the player there. |
 | **Dashboard** | Frames skipped, API calls spent, incidents by severity, which checks fire most often. |
 | **Opens on a working demo** | First run analyses a clip in the background so the first screen shows the product working instead of an empty state. `SEED_DEMO=0` turns it off. |
-| **Export** | CSV, or write straight into [WarehouseOps AI](https://github.com/Harshsoni-anlt/warehouseops-ai)'s safety-incident table so its assistant starts answering with things a camera found. |
+| **Export** | CSV, JSON, or POST incidents to any webhook — a ticketing system, a chat workflow, whatever already runs your operation. |
 
 ## Quickstart
 
@@ -180,17 +180,22 @@ python tests/test_api.py      # API surface, upload guards, path confinement
 
 None of them need an API key or a network.
 
-## Project 2 of a series
+## Part of a series — but it stands alone
 
-| # | Project | Modality | Status |
-|---|---|---|---|
-| 1 | [WarehouseOps AI](https://github.com/Harshsoni-anlt/warehouseops-ai) | Text · structured data | Shipped |
-| **2** | **Video incident intelligence** *(this repo)* | **Video · vision** | Shipped |
-| 3 | Voice operations agent | Audio · speech | Queued |
-| 4 | Catalogue enrichment from a photo | Image · text | Queued |
+This is the second of several systems I'm building around one idea: production-
+shaped AI that runs on free infrastructure, answers with evidence, and is honest
+about what it cannot do.
 
-Same discipline each time: grounded answers, honest limits, and a way to try it
-on your own data.
+**It has no dependency on any of the others.** Clone it, add a key, run it. It
+does not read another project's database, import another project's code, or
+assume anything else is installed. Incidents leave through a CSV, a JSON file or
+a webhook you point wherever you like.
+
+| # | Project | Modality |
+|---|---|---|
+| 1 | [WarehouseOps AI](https://github.com/Harshsoni-anlt/warehouseops-ai) | Text · structured data |
+| **2** | **Video incident intelligence** *(this repo)* | **Video · vision** |
+| 3 | Voice operations agent | Audio · speech — next |
 
 ## License
 

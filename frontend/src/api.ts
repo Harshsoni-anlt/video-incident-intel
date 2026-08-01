@@ -116,7 +116,7 @@ export type Health = {
   motion_threshold: number;
   frames_per_call: number;
   max_frames: number;
-  warehouse_export: boolean;
+  webhook_configured: boolean;
   seeding: boolean;
 };
 
@@ -193,7 +193,7 @@ export const api = {
     req<Incident[]>(`/incidents${videoId ? `?video_id=${videoId}` : ""}`),
   dismissIncident: (id: number) =>
     req<{ dismissed: number }>(`/incidents/${id}`, { method: "DELETE" }),
-  pushToWarehouse: () => req<{ exported: number }>("/incidents/push-to-warehouse", { method: "POST" }),
+  sendIncidents: () => req<{ sent: number }>("/incidents/send", { method: "POST" }),
 };
 
 export const thumbUrl = (t: string | null) => (t ? `/api/thumbs/${t}` : "");

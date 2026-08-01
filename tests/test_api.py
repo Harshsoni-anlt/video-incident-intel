@@ -108,8 +108,10 @@ def main() -> None:
         assert c.get("/api/incidents").json() == []
         csv = c.get("/api/incidents/export.csv")
         assert csv.status_code == 200 and "timestamp" in csv.text
-        # Export is off unless it has been pointed at a database.
-        assert c.post("/api/incidents/push-to-warehouse").status_code == 400
+        # Sending is off until a webhook is configured, and nothing in this
+        # project may depend on any other project being installed.
+        assert c.post("/api/incidents/send").status_code == 400
+        assert c.get("/api/incidents/export.json").json() == []
 
         s = c.get("/api/stats").json()
         assert s["videos"] == 1 and s["incidents_total"] == 0
