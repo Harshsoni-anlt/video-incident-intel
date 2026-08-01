@@ -226,10 +226,13 @@ async def run_analysis(video_id: int, run_id: int, profile: str, mode: str = "fi
         for inc in merge_incidents(tripped):
             chk = by_id.get(inc["check_id"], {})
             span = inc["end_ts_s"] - inc["ts_s"]
-            desc = chk.get("question", "Check tripped")
-            detail = f"{desc} — detected at {_hms(inc['ts_s'])}"
+            # Read the label if the check has one. The raw question is phrased
+            # as an interrogation, which reads wrong on a finding: an incident
+            # should say "Person near a moving forklift", not ask whether one is.
+            what = chk.get("label") or chk.get("question") or "Check tripped"
+            detail = f"{what} — at {_hms(inc['ts_s'])}"
             if span >= 1:
-                detail += f", lasting {span:.0f}s"
+                detail += f", for {span:.0f}s"
             db.execute(
                 "INSERT INTO incidents (video_id, check_id, ts_s, severity, description, "
                 "thumb, confidence) VALUES (?,?,?,?,?,?,?)",

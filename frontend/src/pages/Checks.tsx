@@ -29,6 +29,7 @@ const TRIP_HINT: Record<Check["kind"], string> = {
 const blank = (profile: string): Partial<Check> => ({
   profile,
   question: "",
+  label: "",
   kind: "bool",
   severity: "medium",
   trips_when: "",
@@ -185,6 +186,21 @@ export default function Checks() {
               </Field>
             </div>
 
+            <div className="md:col-span-2">
+              <Field
+                label="Short name"
+                hint="How this reads on an incident and in the charts. A question mark looks wrong on a finding — write it as a statement. Optional; the question is used if you leave it blank."
+              >
+                <input
+                  value={editing.label ?? ""}
+                  onChange={(e) => setEditing({ ...editing, label: e.target.value })}
+                  className={inputClass}
+                  style={inputStyle}
+                  placeholder="Walkway or fire exit blocked"
+                />
+              </Field>
+            </div>
+
             {editing.kind === "category" && (
               <div className="md:col-span-2">
                 <Field label="Options" hint="Comma-separated. The model must pick exactly one.">
@@ -271,7 +287,12 @@ export default function Checks() {
                     aria-label={`${c.active ? "Disable" : "Enable"} this check`}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm leading-snug">{c.question}</p>
+                    <p className="text-sm leading-snug">{c.label || c.question}</p>
+                    {c.label && (
+                      <p className="text-xs mt-0.5 leading-snug" style={{ color: "var(--ink-muted)" }}>
+                        asks: {c.question}
+                      </p>
+                    )}
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap text-[11px]" style={{ color: "var(--ink-muted)" }}>
                       <span
                         className="px-1.5 py-0.5 rounded"

@@ -39,6 +39,7 @@ export type Check = {
   id: number;
   profile: string;
   question: string;
+  label: string | null;
   kind: "bool" | "count" | "category" | "text";
   options: string[] | null;
   severity: Severity;
@@ -56,6 +57,7 @@ export type Observation = {
   tripped: number;
   confidence: number | null;
   question: string;
+  label: string | null;
   kind: string;
   severity: Severity;
 };
@@ -82,10 +84,12 @@ export type Incident = {
   created_at: string;
   filename?: string;
   question?: string;
+  label?: string | null;
 };
 
 export type Stats = {
   videos: number;
+  seconds_of_footage: number;
   hours_of_footage: number;
   runs: number;
   frames_sampled: number;
@@ -111,6 +115,7 @@ export type Health = {
   frames_per_call: number;
   max_frames: number;
   warehouse_export: boolean;
+  seeding: boolean;
 };
 
 export type Citation = {
@@ -198,6 +203,11 @@ export const hms = (s: number) => {
   const pad = (n: number) => String(n).padStart(2, "0");
   return h ? `${pad(h)}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
 };
+
+/** Footage duration reads as seconds/minutes until there are real hours of it. */
+export const footage = (seconds: number) =>
+  seconds >= 3600 ? `${(seconds / 3600).toFixed(1)} h` :
+  seconds >= 60 ? `${Math.round(seconds / 60)} min` : `${Math.round(seconds)}s`;
 
 export const compact = (n: number) =>
   n >= 1_000_000 ? `${(n / 1e6).toFixed(1)}M` : n >= 1_000 ? `${(n / 1e3).toFixed(1)}k` : String(n);

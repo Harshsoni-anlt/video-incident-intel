@@ -20,6 +20,9 @@ sys.path.insert(0, str(ROOT))
 _tmp = tempfile.mkdtemp()
 os.environ["DATA_DIR"] = _tmp
 os.environ["DB_PATH"] = str(Path(_tmp) / "test.db")
+# The first-run demo would add a video these assertions do not expect, and
+# would spend an API call on every test run.
+os.environ["SEED_DEMO"] = "0"
 
 from fastapi.testclient import TestClient  # noqa: E402
 

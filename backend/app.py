@@ -33,11 +33,79 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("video-incident-intel")
 
+# True while the first-run demo is being analysed, so the UI can say so rather
+# than showing an empty dashboard that looks broken.
+_seeding = False
+
+DEMO_PROFILE = "Safety compliance"
+
+
+def _demo_source() -> tuple[Path, str] | None:
+    """Real footage if it has been fetched, otherwise None (caller synthesises).
+
+    Preferring the near-miss clip is deliberate: it is the one where something
+    actually happens, so the seeded dashboard has a real finding on it.
+    """
+    sample_dir = Path(config.DATA_DIR) / "sample"
+    if not sample_dir.is_dir():
+        return None
+    clips = sorted(sample_dir.glob("*.mp4"))
+    if not clips:
+        return None
+    best = next((c for c in clips if "nearmiss" in c.name.lower()), clips[0])
+    return best, best.name
+
+
+async def _seed_demo() -> None:
+    """Analyse one clip on first run so the app opens with a working dashboard.
+
+    This is a real analysis, not fixtures — the descriptions and incidents on
+    screen are genuine model output, and it costs one API call.
+    """
+    global _seeding
+    _seeding = True
+    try:
+        source = await asyncio.to_thread(_demo_source)
+        if source:
+            src, name = source
+            dest = Path(config.UPLOAD_DIR) / f"demo-{uuid.uuid4().hex[:8]}{src.suffix}"
+            # Copy rather than reference: deleting the demo from the UI must not
+            # delete the footage the user fetched.
+            await asyncio.to_thread(shutil.copy2, src, dest)
+        else:
+            name = "synthetic-warehouse-sample.mp4"
+            dest = Path(config.UPLOAD_DIR) / f"demo-{uuid.uuid4().hex[:8]}.mp4"
+            await asyncio.to_thread(pipeline.make_test_clip, dest, 30, 15)
+
+        p = await asyncio.to_thread(pipeline.probe, dest)
+        vid = db.execute(
+            "INSERT INTO videos (filename, stored_path, duration_s, fps, width, height, size_bytes) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (name, str(dest), p.duration_s, p.fps, p.width, p.height, dest.stat().st_size),
+        )
+        run_id = db.execute(
+            "INSERT INTO runs (video_id, profile, mode, stage) VALUES (?,?,?,?)",
+            (vid, DEMO_PROFILE, "filtered", "Queued"),
+        )
+        log.info("seeding the first-run demo from %s", name)
+        await analysis.run_analysis(vid, run_id, DEMO_PROFILE, "filtered")
+    except Exception:                              # noqa: BLE001
+        # A failed seed must never stop the app booting — the user can still
+        # upload their own footage, which is the point of the product anyway.
+        log.exception("demo seeding failed; starting with an empty dashboard")
+    finally:
+        _seeding = False
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.init()
     ok, why = config.vision_ready()
     log.info("vision provider %s: %s", config.VISION_PROVIDER, "ready" if ok else why)
+    # Nothing analysed yet: prepare a demo so the first screen shows the product
+    # working instead of an empty state. Backgrounded so startup is not blocked.
+    if config.SEED_DEMO and ok and not db.one("SELECT 1 AS x FROM videos LIMIT 1"):
+        asyncio.create_task(_seed_demo())
     yield
 
 
@@ -81,6 +149,7 @@ def health() -> dict:
         "frames_per_call": config.FRAMES_PER_CALL,
         "max_frames": config.MAX_FRAMES,
         "warehouse_export": bool(config.WAREHOUSE_DB_PATH),
+        "seeding": _seeding,
     }
 
 
@@ -241,7 +310,7 @@ def timeline(video_id: int) -> dict:
         "WHERE video_id=? ORDER BY ts_s", (video_id,)
     )
     obs = db.query("""
-        SELECT o.*, c.question, c.kind, c.severity
+        SELECT o.*, c.question, c.label, c.kind, c.severity
         FROM observations o JOIN checks c ON c.id = o.check_id
         WHERE o.video_id=? ORDER BY o.ts_s
     """, (video_id,))
@@ -254,7 +323,7 @@ def timeline(video_id: int) -> dict:
         "video": _public(db.one("SELECT * FROM videos WHERE id=?", (video_id,))),
         "frames": frames,
         "incidents": db.query(
-            "SELECT i.*, c.question FROM incidents i LEFT JOIN checks c ON c.id=i.check_id "
+            "SELECT i.*, c.question, c.label FROM incidents i LEFT JOIN checks c ON c.id=i.check_id "
             "WHERE i.video_id=? ORDER BY i.ts_s", (video_id,)
         ),
     }
@@ -280,6 +349,7 @@ async def ask(video_id: int, req: AskRequest) -> dict:
 class CheckIn(BaseModel):
     profile: str = Field(min_length=1, max_length=80)
     question: str = Field(min_length=5, max_length=400)
+    label: str | None = Field(None, max_length=80)
     kind: str = Field("bool", pattern="^(bool|count|category|text)$")
     options: list[str] | None = None
     severity: str = Field("medium", pattern="^(low|medium|high|critical)$")
@@ -310,9 +380,10 @@ def list_checks(profile: str | None = None) -> list[dict]:
 @app.post("/api/checks")
 def create_check(c: CheckIn) -> dict:
     cid = db.execute(
-        "INSERT INTO checks (profile, question, kind, options, severity, trips_when, active, builtin) "
-        "VALUES (?,?,?,?,?,?,?,0)",
-        (c.profile, c.question, c.kind, json.dumps(c.options) if c.options else None,
+        "INSERT INTO checks (profile, question, label, kind, options, severity, trips_when, active, builtin) "
+        "VALUES (?,?,?,?,?,?,?,?,0)",
+        (c.profile, c.question, c.label or None, c.kind,
+         json.dumps(c.options) if c.options else None,
          c.severity, c.trips_when, int(c.active)),
     )
     return db.one("SELECT * FROM checks WHERE id=?", (cid,))
@@ -323,9 +394,10 @@ def update_check(check_id: int, c: CheckIn) -> dict:
     if not db.one("SELECT 1 AS x FROM checks WHERE id=?", (check_id,)):
         raise HTTPException(404, "No such check")
     db.execute(
-        "UPDATE checks SET profile=?, question=?, kind=?, options=?, severity=?, "
+        "UPDATE checks SET profile=?, question=?, label=?, kind=?, options=?, severity=?, "
         "trips_when=?, active=? WHERE id=?",
-        (c.profile, c.question, c.kind, json.dumps(c.options) if c.options else None,
+        (c.profile, c.question, c.label or None, c.kind,
+         json.dumps(c.options) if c.options else None,
          c.severity, c.trips_when, int(c.active), check_id),
     )
     return db.one("SELECT * FROM checks WHERE id=?", (check_id,))
@@ -356,7 +428,7 @@ def list_incidents(
         args.append(severity)
     args.append(limit)
     return db.query(f"""
-        SELECT i.*, v.filename, c.question, c.kind
+        SELECT i.*, v.filename, c.question, c.label, c.kind
         FROM incidents i
         JOIN videos v ON v.id = i.video_id
         LEFT JOIN checks c ON c.id = i.check_id
@@ -452,6 +524,7 @@ def stats() -> dict[str, Any]:
     sampled, sent = work.get("sampled", 0) or 0, work.get("sent", 0) or 0
     return {
         "videos": totals.get("videos", 0),
+        "seconds_of_footage": round(totals.get("seconds_of_footage") or 0, 1),
         "hours_of_footage": round((totals.get("seconds_of_footage") or 0) / 3600, 2),
         "runs": work.get("runs", 0),
         "frames_sampled": sampled,
@@ -470,7 +543,7 @@ def stats() -> dict[str, Any]:
             GROUP BY v.id ORDER BY incidents DESC, v.id DESC LIMIT 10
         """),
         "top_checks": db.query("""
-            SELECT c.question, c.severity, COUNT(o.id) AS trips
+            SELECT COALESCE(c.label, c.question) AS question, c.severity, COUNT(o.id) AS trips
             FROM observations o JOIN checks c ON c.id = o.check_id
             WHERE o.tripped = 1 GROUP BY c.id ORDER BY trips DESC LIMIT 8
         """),

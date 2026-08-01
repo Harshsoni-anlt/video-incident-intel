@@ -38,6 +38,10 @@ CREATE TABLE IF NOT EXISTS checks (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   profile     TEXT NOT NULL,
   question    TEXT NOT NULL,          -- plain language, sent to the vision model
+  -- Short declarative name for the finding, e.g. "Person near moving forklift".
+  -- Incidents and charts read this; the raw question reads as an interrogation
+  -- ("Is a person within two metres of...?") wherever a result belongs.
+  label       TEXT,
   kind        TEXT NOT NULL,          -- bool | count | category | text
   options     TEXT,                   -- JSON array, for kind=category
   severity    TEXT NOT NULL DEFAULT 'low',   -- low|medium|high|critical
@@ -168,42 +172,57 @@ def unpack(blob: bytes | None) -> np.ndarray | None:
 BUILTIN_PROFILES: dict[str, list[dict[str, Any]]] = {
     "Safety compliance": [
         {"question": "Is a person visible in this frame wearing a high-visibility vest? Answer no only if a person is visible without one.",
+         "label": "Worker without a hi-vis vest",
          "kind": "bool", "severity": "high", "trips_when": "false"},
         {"question": "Is a marked walkway, fire exit or emergency door blocked or obstructed by anything?",
+         "label": "Walkway or fire exit blocked",
          "kind": "bool", "severity": "critical", "trips_when": "true"},
         {"question": "Is a person standing or walking within roughly two metres of a moving forklift or vehicle?",
+         "label": "Person near a moving forklift",
          "kind": "bool", "severity": "critical", "trips_when": "true"},
         {"question": "Are there visible spills, debris, or loose objects on the floor creating a trip hazard?",
+         "label": "Trip hazard on the floor",
          "kind": "bool", "severity": "medium", "trips_when": "true"},
         {"question": "Is anything stacked in a way that looks unstable or leaning?",
+         "label": "Unstable or leaning stack",
          "kind": "bool", "severity": "high", "trips_when": "true"},
     ],
     "Inventory count": [
         {"question": "How many boxes, cartons or packages are visible in this frame? Answer with a number only.",
+         "label": "Boxes visible",
          "kind": "count", "severity": "low", "trips_when": ""},
         {"question": "How many pallets are visible? Answer with a number only.",
+         "label": "Pallets visible",
          "kind": "count", "severity": "low", "trips_when": ""},
         {"question": "How many people are visible? Answer with a number only.",
+         "label": "People visible",
          "kind": "count", "severity": "low", "trips_when": ""},
         {"question": "Are any storage racks or shelves completely empty?",
+         "label": "Empty rack or shelf",
          "kind": "bool", "severity": "low", "trips_when": "true"},
     ],
     "Product identification": [
         {"question": "What type of goods or products are visible? Answer with a short noun phrase.",
+         "label": "Goods type",
          "kind": "text", "severity": "low", "trips_when": ""},
         {"question": "What is the dominant packaging type visible?",
+         "label": "Packaging type",
          "kind": "category", "severity": "low",
          "options": ["cardboard boxes", "pallets", "crates", "drums", "sacks", "loose items", "none visible"],
          "trips_when": ""},
         {"question": "Is any packaging visibly damaged, crushed or torn open?",
+         "label": "Damaged packaging",
          "kind": "bool", "severity": "medium", "trips_when": "true"},
     ],
     "Dock & congestion": [
         {"question": "Is a vehicle present at the loading dock?",
+         "label": "Vehicle at the dock",
          "kind": "bool", "severity": "low", "trips_when": ""},
         {"question": "Is the loading bay area congested or blocked such that a vehicle could not pass?",
+         "label": "Loading bay congested",
          "kind": "bool", "severity": "medium", "trips_when": "true"},
         {"question": "How many vehicles are visible? Answer with a number only.",
+         "label": "Vehicles visible",
          "kind": "count", "severity": "low", "trips_when": ""},
     ],
 }
@@ -214,13 +233,14 @@ def init(seed_builtins: bool = True) -> None:
     conn().commit()
     if seed_builtins and not one("SELECT 1 AS x FROM checks LIMIT 1"):
         rows = [
-            (name, c["question"], c["kind"], json.dumps(c.get("options")) if c.get("options") else None,
+            (name, c["question"], c.get("label"), c["kind"],
+             json.dumps(c.get("options")) if c.get("options") else None,
              c["severity"], c.get("trips_when", ""), 1, 1)
             for name, checks in BUILTIN_PROFILES.items()
             for c in checks
         ]
         executemany(
-            "INSERT INTO checks (profile, question, kind, options, severity, trips_when, active, builtin) "
-            "VALUES (?,?,?,?,?,?,?,?)",
+            "INSERT INTO checks (profile, question, label, kind, options, severity, trips_when, active, builtin) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
             rows,
         )

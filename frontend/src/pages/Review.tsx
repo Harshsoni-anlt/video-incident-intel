@@ -355,8 +355,8 @@ export default function Review({
                           className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
                           style={{ background: o.tripped ? SEVERITY_COLOR[o.severity] : "var(--border-strong)" }}
                         />
-                        <span className="flex-1" style={{ color: "var(--ink-2)" }}>
-                          {o.question}
+                        <span className="flex-1" style={{ color: "var(--ink-2)" }} title={o.question}>
+                          {o.label || o.question}
                         </span>
                         <span className="font-medium shrink-0" style={{ color: o.tripped ? SEVERITY_COLOR[o.severity] : "var(--ink)" }}>
                           {o.value}

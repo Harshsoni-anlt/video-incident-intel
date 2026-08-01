@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api, compact, hms, SEVERITY_COLOR, SEVERITY_ORDER, thumbUrl, type Stats } from "../api";
+import { api, compact, footage, hms, SEVERITY_COLOR, SEVERITY_ORDER, thumbUrl, type Stats } from "../api";
 import { Button, Card, Empty, ErrorNote, SeverityBadge, Spinner, Stat } from "../components/ui";
 import { axisProps, SavingsBar, TooltipBox } from "../components/charts";
 
@@ -21,11 +21,33 @@ export default function Dashboard({
   goto: (p: "footage") => void;
 }) {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [seeding, setSeeding] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    api.stats().then(setStats).catch((e) => setError(e.message));
+  const load = useCallback(async () => {
+    try {
+      const [s, h] = await Promise.all([api.stats(), api.health()]);
+      setStats(s);
+      setSeeding(h.seeding);
+      return h.seeding;
+    } catch (e) {
+      setError((e as Error).message);
+      return false;
+    }
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // On a fresh install the backend analyses a demo clip in the background, so
+  // the first thing anyone sees is the product working rather than an empty
+  // dashboard. Poll until it lands.
+  useEffect(() => {
+    if (!seeding) return;
+    const t = setInterval(() => load(), 2000);
+    return () => clearInterval(t);
+  }, [seeding, load]);
 
   if (error) return <ErrorNote>{error}</ErrorNote>;
   if (!stats) return <Spinner label="Loading…" />;
@@ -33,11 +55,24 @@ export default function Dashboard({
   if (!stats.videos) {
     return (
       <Card>
-        <Empty
-          title="No footage yet"
-          body="Upload a clip, or generate a synthetic sample to see the whole pipeline run end to end without downloading anything."
-          action={<Button variant="primary" onClick={() => goto("footage")}>Add footage</Button>}
-        />
+        {seeding ? (
+          <div className="py-12 text-center">
+            <div className="flex justify-center">
+              <Spinner label="Preparing your demo…" />
+            </div>
+            <p className="text-xs mt-3 max-w-md mx-auto leading-relaxed" style={{ color: "var(--ink-muted)" }}>
+              Sampling frames, filtering out everything that didn't change, and asking the
+              vision model about what's left. This is a real analysis, not a fixture — about
+              ten seconds.
+            </p>
+          </div>
+        ) : (
+          <Empty
+            title="No footage yet"
+            body="Upload a clip, or generate a synthetic sample to see the whole pipeline run end to end without downloading anything."
+            action={<Button variant="primary" onClick={() => goto("footage")}>Add footage</Button>}
+          />
+        )}
       </Card>
     );
   }
@@ -57,7 +92,7 @@ export default function Dashboard({
       <header>
         <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-sm mt-0.5" style={{ color: "var(--ink-muted)" }}>
-          {stats.videos} video{stats.videos === 1 ? "" : "s"} · {stats.hours_of_footage} h of footage ·{" "}
+          {stats.videos} video{stats.videos === 1 ? "" : "s"} · {footage(stats.seconds_of_footage)} of footage ·{" "}
           {stats.runs} completed run{stats.runs === 1 ? "" : "s"}
         </p>
       </header>
@@ -78,7 +113,7 @@ export default function Dashboard({
         <Stat
           label="Analysis time"
           value={`${stats.compute_seconds.toFixed(0)}s`}
-          hint={`${stats.hours_of_footage} h of footage reviewed`}
+          hint={`${footage(stats.seconds_of_footage)} of footage reviewed`}
         />
       </div>
 

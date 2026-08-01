@@ -68,6 +68,11 @@ FRAME_LONG_EDGE = _int("FRAME_LONG_EDGE", 512)
 # --- Upload guard ---
 MAX_UPLOAD_MB = _int("MAX_UPLOAD_MB", 500)
 
+# On first run, analyse one clip automatically so the app opens showing the
+# product working rather than an empty dashboard. Costs one API call. Set to 0
+# for a clean install, or when running the tests.
+SEED_DEMO = os.getenv("SEED_DEMO", "1").lower() not in ("0", "false", "no", "off")
+
 # --- Incident write-back to project 1 (WarehouseOps AI) ---
 # Point this at that repo's warehouse.db to have camera findings show up in the
 # assistant's safety-incident table. Empty = feature off.
