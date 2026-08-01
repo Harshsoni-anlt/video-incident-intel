@@ -208,11 +208,14 @@ def analyze(video_id: int, req: AnalyzeRequest, background: BackgroundTasks) -> 
         raise HTTPException(404, "No such video")
     if v["status"] == "analyzing":
         raise HTTPException(409, "This video is already being analysed.")
+    # Validate the request before the environment: "that profile has no active
+    # checks" is specific to what the user just did, whereas a missing key is a
+    # setup problem the UI already reports in a banner on every screen.
+    if not db.query("SELECT 1 FROM checks WHERE profile=? AND active=1", (req.profile,)):
+        raise HTTPException(400, f"Profile {req.profile!r} has no active checks.")
     ok, why = config.vision_ready()
     if not ok:
         raise HTTPException(503, why)
-    if not db.query("SELECT 1 FROM checks WHERE profile=? AND active=1", (req.profile,)):
-        raise HTTPException(400, f"Profile {req.profile!r} has no active checks.")
 
     run_id = db.execute(
         "INSERT INTO runs (video_id, profile, mode, stage) VALUES (?,?,?,?)",

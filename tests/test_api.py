@@ -76,6 +76,9 @@ def main() -> None:
 
         # A profile with nothing active cannot be analysed — better a clear
         # 400 than a run that quietly describes frames against no questions.
+        # This must hold whether or not an API key is configured: request
+        # validation runs before the environment check, so a clean clone with
+        # no .env still gets the specific error rather than a generic 503.
         assert c.post(f"/api/videos/{v['id']}/analyze", json={"profile": "Custom"}).status_code == 400
         assert c.post(f"/api/videos/{v['id']}/analyze", json={"profile": "Nope"}).status_code == 400
         # Mode is constrained by the schema.
