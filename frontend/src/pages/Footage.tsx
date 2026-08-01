@@ -23,6 +23,7 @@ export default function Footage({ onOpenVideo }: { onOpenVideo: (id: number) => 
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
   const [runs, setRuns] = useState<Record<number, Run>>({});
+  const [realFootage, setRealFootage] = useState<boolean | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -35,6 +36,7 @@ export default function Footage({ onOpenVideo }: { onOpenVideo: (id: number) => 
 
   useEffect(() => {
     refresh();
+    api.sampleStatus().then((s) => setRealFootage(s.has_real_footage)).catch(() => {});
     api.profiles().then((p) => {
       setProfiles(p);
       if (p.length && !p.some((x) => x.profile === "Safety compliance")) setProfile(p[0].profile);
@@ -169,9 +171,20 @@ export default function Footage({ onOpenVideo }: { onOpenVideo: (id: number) => 
                     sample();
                   }}
                 >
-                  Use a sample clip
+                  {realFootage === false ? "Use a test pattern" : "Use a sample clip"}
                 </Button>
               </div>
+              {realFootage === false && (
+                // Without this, someone writes "how many people are visible?",
+                // runs it against coloured rectangles, gets zero, and concludes
+                // the app is broken. It isn't — there are no people in it.
+                <p className="text-[11px] mt-3 max-w-lg mx-auto leading-relaxed" style={{ color: "var(--ink-muted)" }}>
+                  No real footage downloaded yet, so the sample is an abstract test pattern —
+                  moving shapes, no people or shelving. It proves the pipeline runs, but
+                  questions about people or stock will honestly answer zero.
+                  Run <code>python scripts/fetch_sample.py</code> for real warehouse footage.
+                </p>
+              )}
             </>
           )}
         </div>

@@ -36,6 +36,7 @@ export default function Review({
   onPickVideo: (id: number) => void;
 }) {
   const [videos, setVideos] = useState<Video[]>([]);
+  const [pending, setPending] = useState<Video[]>([]);
   const [data, setData] = useState<{ video: Video; frames: Frame[]; incidents: Incident[] } | null>(null);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Frame | null>(null);
@@ -46,9 +47,16 @@ export default function Review({
   const [answer, setAnswer] = useState<{ answer: string; citations: Citation[] } | null>(null);
 
   useEffect(() => {
-    api.videos().then((vs) => {
-      setVideos(vs.filter((v) => v.status === "ready"));
-    });
+    const load = () =>
+      api.videos().then((vs) => {
+        setVideos(vs.filter((v) => v.status === "ready"));
+        setPending(vs.filter((v) => v.status === "analyzing" || v.status === "failed"));
+      });
+    load();
+    // A video analysed while this page is open would otherwise never appear —
+    // which reads as "my video vanished".
+    const t = setInterval(load, 4000);
+    return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
@@ -98,10 +106,27 @@ export default function Review({
         <h1 className="text-xl font-semibold tracking-tight">Review</h1>
         <Card>
           {videos.length === 0 ? (
-            <Empty
-              title="Nothing analysed yet"
-              body="Analyse a video on the Footage page and it will show up here for review."
-            />
+            pending.some((v) => v.status === "analyzing") ? (
+              <div className="py-12 text-center">
+                <div className="flex justify-center">
+                  <Spinner label="Still analysing…" />
+                </div>
+                <p className="text-xs mt-3" style={{ color: "var(--ink-muted)" }}>
+                  This page will pick it up as soon as the run finishes.
+                </p>
+              </div>
+            ) : pending.some((v) => v.status === "failed") ? (
+              <Empty
+                title="The last analysis failed"
+                body={pending.find((v) => v.status === "failed")?.error ??
+                  "Open the Footage page for the reason."}
+              />
+            ) : (
+              <Empty
+                title="Nothing analysed yet"
+                body="Analyse a video on the Footage page and it will show up here for review."
+              />
+            )
           ) : (
             <ul className="divide-y" style={{ borderColor: "var(--border)" }}>
               {videos.map((v) => (

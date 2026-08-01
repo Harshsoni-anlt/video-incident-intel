@@ -155,7 +155,9 @@ export const api = {
   videos: () => req<Video[]>("/videos"),
   video: (id: number) => req<Video & { runs: Run[] }>(`/videos/${id}`),
   deleteVideo: (id: number) => req<{ deleted: number }>(`/videos/${id}`, { method: "DELETE" }),
-  createSample: () => req<Video>("/videos/sample", { method: "POST" }),
+  createSample: () => req<Video & { synthetic: boolean }>("/videos/sample", { method: "POST" }),
+  sampleStatus: () =>
+    req<{ has_real_footage: boolean; name: string | null; fetch_command: string }>("/sample-status"),
   upload: (file: File) => {
     const fd = new FormData();
     fd.append("file", file);

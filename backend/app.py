@@ -205,21 +205,46 @@ async def upload_video(file: UploadFile = File(...)) -> dict:
 
 @app.post("/api/videos/sample")
 async def create_sample() -> dict:
-    """Generate a synthetic clip so the app is demoable with nothing downloaded.
+    """Add a sample clip to work with.
 
-    Real footage is the NVIDIA SDG-Warehouse dataset — see data/sample/README.md.
-    This is the zero-friction path for someone who just cloned the repo.
+    Real footage if `scripts/fetch_sample.py` has been run, otherwise a
+    generated one. The generated clip is an abstract test pattern — coloured
+    shapes, no people, no shelving — so a check like "how many people are
+    visible?" correctly answers zero on it. That is honest but reads as a
+    broken app, hence `synthetic` in the response for the UI to warn about.
     """
-    dest = Path(config.UPLOAD_DIR) / f"sample-{uuid.uuid4().hex[:8]}.mp4"
-    await asyncio.to_thread(pipeline.make_test_clip, dest, 30, 15)
+    source = await asyncio.to_thread(_demo_source)
+    if source:
+        src, name = source
+        dest = Path(config.UPLOAD_DIR) / f"sample-{uuid.uuid4().hex[:8]}{src.suffix}"
+        await asyncio.to_thread(shutil.copy2, src, dest)
+        synthetic = False
+    else:
+        name = "test-pattern.mp4"
+        dest = Path(config.UPLOAD_DIR) / f"sample-{uuid.uuid4().hex[:8]}.mp4"
+        await asyncio.to_thread(pipeline.make_test_clip, dest, 30, 15)
+        synthetic = True
+
     p = await asyncio.to_thread(pipeline.probe, dest)
     vid = db.execute(
         "INSERT INTO videos (filename, stored_path, duration_s, fps, width, height, size_bytes) "
         "VALUES (?,?,?,?,?,?,?)",
-        ("synthetic-warehouse-sample.mp4", str(dest), p.duration_s, p.fps,
-         p.width, p.height, dest.stat().st_size),
+        (name, str(dest), p.duration_s, p.fps, p.width, p.height, dest.stat().st_size),
     )
-    return _public(db.one("SELECT * FROM videos WHERE id=?", (vid,)))
+    out = _public(db.one("SELECT * FROM videos WHERE id=?", (vid,)))
+    out["synthetic"] = synthetic
+    return out
+
+
+@app.get("/api/sample-status")
+def sample_status() -> dict:
+    """Whether real footage is available locally, for the UI to say so."""
+    src = _demo_source()
+    return {
+        "has_real_footage": bool(src),
+        "name": src[1] if src else None,
+        "fetch_command": "python scripts/fetch_sample.py",
+    }
 
 
 @app.get("/api/videos/{video_id}")
