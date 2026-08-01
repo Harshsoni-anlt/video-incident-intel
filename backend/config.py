@@ -40,8 +40,23 @@ for _d in (UPLOAD_DIR, THUMB_DIR):
 # --- Vision provider ---
 VISION_PROVIDER = os.getenv("VISION_PROVIDER", "gemini").lower()
 
+# Values the template ships with. run.sh copies .env.example to .env on first
+# run, and load_dotenv does not override, so an untouched placeholder would
+# otherwise shadow a real key for good — and the app would report "API key not
+# valid" rather than "you haven't set one".
+_PLACEHOLDERS = {"", "your-key-here", "your-groq-key-here", "changeme", "xxx", "todo"}
+
+
+def _first_real(*names: str) -> str:
+    for n in names:
+        v = (os.getenv(n) or "").strip().strip("\"'")
+        if v.lower() not in _PLACEHOLDERS:
+            return v
+    return ""
+
+
 # GOOGLE_API_KEY is what Google's own tooling sets; accept either spelling.
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
+GEMINI_API_KEY = _first_real("GEMINI_API_KEY", "GOOGLE_API_KEY")
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
 VISION_MODEL = os.getenv("VISION_MODEL", "gemini-3.5-flash-lite")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "gemini-embedding-001")
@@ -85,7 +100,11 @@ def vision_ready() -> tuple[bool, str]:
     """Whether a vision model is reachable, and why not if it isn't."""
     if VISION_PROVIDER == "gemini":
         if not GEMINI_API_KEY:
-            return False, "GEMINI_API_KEY (or GOOGLE_API_KEY) is not set. Get a free key at https://aistudio.google.com/apikey"
+            return False, (
+                "No Gemini API key yet. Get a free one (no card) at "
+                "https://aistudio.google.com/apikey, then put it in .env as "
+                "GEMINI_API_KEY=... and restart."
+            )
         return True, ""
     if VISION_PROVIDER == "ollama":
         return True, ""

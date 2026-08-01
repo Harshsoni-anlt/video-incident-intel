@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { api, type Health } from "./api";
 import Dashboard from "./pages/Dashboard";
+import Landing from "./pages/Landing";
 import Footage from "./pages/Footage";
 import Review from "./pages/Review";
 import Checks from "./pages/Checks";
 import Incidents from "./pages/Incidents";
 import { ErrorNote } from "./components/ui";
 
-type Page = "dashboard" | "footage" | "review" | "checks" | "incidents";
+type Page = "landing" | "dashboard" | "footage" | "review" | "checks" | "incidents";
 
 const NAV: { id: Page; label: string; icon: string }[] = [
   { id: "dashboard", label: "Dashboard", icon: "M3 13h4v8H3zM10 3h4v18h-4zM17 9h4v12h-4z" },
@@ -30,7 +31,8 @@ function useTheme() {
 
 const pageFromHash = (): Page => {
   const h = location.hash.replace("#", "") as Page;
-  return NAV.some((n) => n.id === h) ? h : "dashboard";
+  if (h === "landing") return "landing";
+  return NAV.some((n) => n.id === h) ? h : "landing";
 };
 
 export default function App() {
@@ -60,6 +62,14 @@ export default function App() {
     setPage("review");
   };
 
+  if (page === "landing") {
+    return (
+      <div className="h-full overflow-y-auto">
+        <Landing onLaunch={() => setPage("dashboard")} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full">
       <nav
@@ -67,12 +77,16 @@ export default function App() {
         style={{ borderColor: "var(--border)", background: "var(--surface)" }}
       >
         <div className="px-5 py-5">
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage("landing")}
+            className="flex items-center gap-2 text-left hover:opacity-75 transition-opacity"
+            title="Back to the overview"
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--series-1)" aria-hidden>
               <path d="M4 5h16v14H4zm5 3.5v7l6-3.5z" />
             </svg>
             <span className="font-semibold text-sm tracking-tight">Incident Intel</span>
-          </div>
+          </button>
           <p className="text-[11px] mt-1.5 leading-snug" style={{ color: "var(--ink-muted)" }}>
             Plain-language search over camera footage
           </p>

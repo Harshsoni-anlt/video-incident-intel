@@ -142,6 +142,13 @@ async def run_analysis(video_id: int, run_id: int, profile: str, mode: str = "fi
             raise ValueError(f"Profile {profile!r} has no active checks.")
 
         db.execute("UPDATE videos SET status='analyzing', error=NULL WHERE id=?", (video_id,))
+
+        # Re-analysing replaces the previous result, it does not add to it.
+        # Without this the timeline shows two frames per timestamp and every
+        # re-run duplicates the incidents. Observations cascade from frames.
+        db.execute("DELETE FROM frames WHERE video_id=? AND run_id<>?", (video_id, run_id))
+        db.execute("DELETE FROM incidents WHERE video_id=?", (video_id,))
+
         _set(run_id, stage="Decoding and filtering frames", progress=0.05)
 
         # Blocking OpenCV work — keep it off the event loop.

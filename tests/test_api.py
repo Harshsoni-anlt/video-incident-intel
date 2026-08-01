@@ -37,6 +37,19 @@ def main() -> None:
         assert r.status_code == 200, r.text
         assert r.json()["provider"] in ("gemini", "ollama")
 
+        # A template placeholder must never be treated as a real key. run.sh
+        # copies .env.example to .env, and load_dotenv does not override, so an
+        # untouched placeholder would otherwise shadow a real key permanently
+        # and the app would report "API key not valid" instead of "not set".
+        from backend.config import _first_real
+        import os as _os
+        _os.environ["__T_PLACEHOLDER"] = "your-key-here"
+        _os.environ["__T_REAL"] = "AQ.realkeyvalue"
+        assert _first_real("__T_PLACEHOLDER", "__T_REAL") == "AQ.realkeyvalue", \
+            "a placeholder must fall through to the next candidate"
+        assert _first_real("__T_PLACEHOLDER") == ""
+        assert _first_real("__T_MISSING_ENTIRELY") == ""
+
         profiles = c.get("/api/profiles").json()
         assert len(profiles) >= 4, f"built-in profiles missing: {profiles}"
         assert any(p["profile"] == "Safety compliance" for p in profiles)
@@ -101,6 +114,18 @@ def main() -> None:
         s = c.get("/api/stats").json()
         assert s["videos"] == 1 and s["incidents_total"] == 0
         assert s["frames_skipped_pct"] == 0, "no completed runs yet"
+
+        # Re-analysing must replace the previous result, not stack on it.
+        # (The delete runs inside run_analysis; assert the statement is there
+        # rather than spending an API call to prove it end to end.)
+        import inspect
+
+        from backend import analysis as _an
+        src = inspect.getsource(_an.run_analysis)
+        assert "DELETE FROM frames WHERE video_id=? AND run_id<>?" in src, \
+            "a re-run must clear the previous run's frames"
+        assert "DELETE FROM incidents WHERE video_id=?" in src, \
+            "a re-run must clear the previous run's incidents"
 
         # --- Deletion is thorough ---------------------------------------
         assert c.delete(f"/api/videos/{v['id']}").status_code == 200
