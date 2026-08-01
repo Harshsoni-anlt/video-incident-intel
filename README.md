@@ -69,6 +69,7 @@ a quiet aisle and they are not.
 | **Automatic incidents** | A check that trips with enough confidence files an incident with the frame attached. Consecutive trips are merged, so an eight-second near-miss is one incident, not eight. |
 | **Ask anything** | Free-text questions run over the indexed frame descriptions. Answers cite the timestamps they came from, and clicking one seeks the player there. |
 | **Dashboard** | Frames skipped, API calls spent, incidents by severity, which checks fire most often. |
+| **Opens on a working demo** | First run analyses a clip in the background so the first screen shows the product working instead of an empty state. `SEED_DEMO=0` turns it off. |
 | **Export** | CSV, or write straight into [WarehouseOps AI](https://github.com/Harshsoni-anlt/warehouseops-ai)'s safety-incident table so its assistant starts answering with things a camera found. |
 
 ## Quickstart
@@ -80,9 +81,15 @@ cp .env.example .env        # add a free Gemini key: https://aistudio.google.com
 ./run.sh
 ```
 
-Open <http://localhost:5173> and press **Use a sample clip** — it generates a
-synthetic warehouse scene locally, so the whole pipeline is demoable before you
-download anything or point it at real footage.
+Open <http://localhost:5173>. You land on a page explaining what the system does
+and how it keeps the cost down; **Open the app** takes you to the dashboard,
+which has already analysed a clip for you — a real run, not fixtures.
+
+For real footage, `python scripts/fetch_sample.py` pulls a 1080p warehouse clip;
+after that, **Use a sample clip** hands you that instead of a generated one.
+With nothing downloaded you still get a test pattern that proves the pipeline
+runs end to end — the app is explicit that it is an abstract pattern, because a
+question like "how many people are visible?" will honestly answer zero on it.
 
 Needs Python ≥ 3.11 and Node ≥ 18; `run.sh` creates the virtualenv and installs
 both sides on first run. **No ffmpeg install required** — OpenCV ships its own
@@ -125,8 +132,10 @@ stops at the first clip instead of downloading the shard.
 The footage is **fully synthetic**, rendered in Isaac Sim: no real people, no
 privacy question, no consent to chase. Licensed OpenMDW 1.1 — see [NOTICE](NOTICE).
 
-Or press **Use a sample clip** in the app, which generates a synthetic scene
-locally in a second and needs no download at all.
+Once a clip is downloaded, **Use a sample clip** in the app hands you that.
+With nothing downloaded it generates an abstract test pattern instead — enough
+to prove the pipeline runs, but questions about people or stock will answer
+zero on it, and the app says so rather than letting you conclude it is broken.
 
 ## Honest limitations
 
@@ -143,6 +152,11 @@ locally in a second and needs no download at all.
   calibrated probability.
 - **One camera at a time.** No multi-camera correlation, no person tracking, no
   live RTSP. Deliberately.
+- **No object localisation.** Findings are frame-level: *this frame shows a
+  person near a forklift*, not *the forklift is at these pixels*. If you need
+  boxes, a trained detector is the right tool.
+- **Single user.** SQLite, one process, no auth. Answering a question while an
+  analysis is running is slow, because the analysis holds the write lock.
 
 ## Tests
 
